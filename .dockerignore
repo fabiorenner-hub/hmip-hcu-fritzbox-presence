@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.github
+.tmp-assets
+data
+config.json
+*.log
+*.tar.gz
+README*.md
+CHANGELOG.md
