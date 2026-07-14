@@ -25,32 +25,28 @@ Found a bug or have a question? Please [open an issue](../../issues). Include
 your HCU firmware version, the plugin version, your Fritz!OS version, and the
 relevant lines from the Connect log (HCUweb → plugin log panel).
 
-## Updates & dashboard
+## Updates (over-the-air)
 
-The plugin can update itself over the air. A small local dashboard is available
-at `http://<your-hcu>.local:8093/` (dark theme, DE/EN) with:
+The plugin can update itself over the air. A small local dashboard at
+`http://<your-hcu>.local:8093/` (dark theme, DE/EN) shows the installed / image
+/ latest version and lets you pick an update **channel** and **mode**:
 
-- installed / image / latest version, update **mode** (automatic/manual) and
-  **channel** (stable/experimental);
-- an **Update now** button with a progress bar and a robust install flow
-  (installing → restarting → done) that survives the restart window and reloads
-  automatically — no more "failed to fetch";
-- the privacy toggle (see below).
+- **stable** (default) — vetted GitHub releases.
+- **experimental** — rolling prereleases, delivered over the air without a new
+  `.tar.gz`/HCUweb upload. For testers.
+- mode **manual** (default) checks in the background and lets you install on
+  demand; **auto** installs new versions on the selected channel automatically.
 
-Auto-update is **on by default on the stable channel**. Experimental delivers
-rolling prereleases for testing.
+The **Update now** button shows a progress bar and a robust install flow
+(installing → restarting → done) that survives the restart window and reloads
+automatically — no more "failed to fetch".
 
-## Privacy
-
-The plugin sends **anonymous, pseudonymous technical telemetry** (on by default,
-opt-out) to help gauge install counts, versions, architecture and firmware
-spread. Sent fields: schema, event (`start`/`heartbeat`/`update`), a
-pseudonymous `installId` (`sha256(salt + HCU SGTIN)` — the raw SGTIN is never
-transmitted), `pluginId`, plugin/core/OTA versions, architecture, HCU firmware
-and language. **Never** names, rooms, devices, measurements, automations,
-schedules, config, tokens, IP or location. Turn it off in the dashboard or the
-plugin config under **Privacy → "Send anonymous usage statistics"**; the exact
-payload is shown under **"What is sent?"**.
+The plugin boots through a small bootstrap loader that runs either the baked-in
+image or an installed OTA payload, with **crash-loop protection**: if an OTA
+payload fails to start three times it is quarantined and the plugin rolls back
+to the image automatically. A stable core image always wins over an older OTA
+payload. Major upgrades that need a newer core still ship as a `.tar.gz` via
+HCUweb.
 
 ## What it does
 
