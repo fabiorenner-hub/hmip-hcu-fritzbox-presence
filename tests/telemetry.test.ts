@@ -66,6 +66,27 @@ describe("telemetry", () => {
     expect(Buffer.byteLength(JSON.stringify(p), "utf8")).toBeLessThanOrEqual(4096);
   });
 
+  it("drops optional fields that violate the ingest constraints", async () => {
+    const sgtinPath = path.join(dir, "SGTIN");
+    await fs.writeFile(sgtinPath, "SGTIN-XYZ", "utf8");
+    const tele = new Telemetry({
+      dataDir: dir,
+      getEnabled: () => true,
+      getVersions: () => ({
+        coreVersion: "1.2.3",
+        otaVersion: "1.2.3",
+        arch: "arm64!!",              // invalid char -> dropped
+        lang: "this-lang-is-way-too-long", // > 12 chars -> dropped
+        hcuFirmware: "1.4.7",         // valid -> kept
+      }),
+      sgtinPath,
+    });
+    const p = await tele.buildPayload("start");
+    expect(p.arch).toBeUndefined();
+    expect(p.lang).toBeUndefined();
+    expect(p.hcuFirmware).toBe("1.4.7");
+  });
+
   it("records success on HTTP 204 when enabled", async () => {
     const { tele, sgtinPath } = make({
       enabled: true,

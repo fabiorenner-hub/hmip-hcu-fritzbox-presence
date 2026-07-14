@@ -437,7 +437,7 @@ export class ConfigStore {
       [PropertyId.analyticsEnabled]: {
         dataType: "BOOLEAN",
         friendlyName: "Send anonymous usage statistics",
-        description: "On by default. Sends only pseudonymous technical metadata (plugin/core/OTA version, architecture, firmware, language) — never names, rooms, devices, measurements, tokens or your SGTIN. Turn off to send nothing.",
+        description: "Sends only pseudonymous technical information such as plugin version, HCU firmware, architecture and language. No device, room, measurement or configuration data is transmitted. On by default; turn off to send nothing.",
         defaultValue: "true",
         currentValue: String(c.analytics.enabled),
         groupId: GROUP_ANALYTICS,

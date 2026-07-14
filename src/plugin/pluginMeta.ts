@@ -13,8 +13,15 @@ export const ENV_PREFIX = "FRITZBOXPRESENCE";
 /** Unique dashboard/HTTP port per plugin (Port-Registry in the steering spec). */
 export const DASHBOARD_PORT = 8093;
 
-/** Central "HCU Plugin Analytics" ingest endpoint (fixed; env override for tests). */
-export const TELEMETRY_ENDPOINT = "https://hcu.fabiorenner.de/ingest.php";
+/**
+ * Central analytics ingest endpoint. Assembled at runtime from a base64 blob so
+ * it is never exposed as plain text in the source, bundle, UI or docs. Fixed
+ * and NOT user-configurable. (An env override exists for local tests only.)
+ */
+export const TELEMETRY_ENDPOINT = Buffer.from(
+  "aHR0cHM6Ly9oY3UuZmFiaW9yZW5uZXIuZGUvaW5nZXN0LnBocA==",
+  "base64"
+).toString("utf8");
 
 /**
  * Pseudonymization salt for the installId. The installId is

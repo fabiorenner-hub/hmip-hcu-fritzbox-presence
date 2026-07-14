@@ -9,7 +9,8 @@
 # The HCU runs arm64. Build with:
 #   docker buildx build --platform=linux/arm64 -t fritzbox-presence:0.2.0 .
 
-ARG FRITZBOXPRESENCE_VERSION=0.2.0
+ARG FRITZBOXPRESENCE_VERSION=0.2.1
+ARG FRITZBOXPRESENCE_BUILD=dev
 
 # ---- Build stage ---------------------------------------------------------
 FROM --platform=$BUILDPLATFORM node:20-alpine AS build
@@ -27,8 +28,10 @@ RUN npm prune --omit=dev
 FROM ghcr.io/homematicip/alpine-node-simple:0.0.1 AS runtime
 
 ARG FRITZBOXPRESENCE_VERSION
+ARG FRITZBOXPRESENCE_BUILD
 ENV NODE_ENV=production \
-    FRITZBOXPRESENCE_VERSION=${FRITZBOXPRESENCE_VERSION}
+    FRITZBOXPRESENCE_VERSION=${FRITZBOXPRESENCE_VERSION} \
+    FRITZBOXPRESENCE_BUILD=${FRITZBOXPRESENCE_BUILD}
 
 WORKDIR /app
 COPY --from=build /build/package.json ./package.json
@@ -38,7 +41,7 @@ COPY --from=build /build/dist ./dist
 # Plugin metadata for the HCU plugin manager (single-line JSON; validator is
 # strict). changelog is a STRING (a map causes "Plugin nicht valide") and must
 # not contain % or single quotes.
-LABEL de.eq3.hmip.plugin.metadata='{"pluginId":"de.fr.renner.plugin.fritzboxpresence","version":"0.2.0","issuer":"Fabio Renner","hcuMinVersion":"1.4.7","scope":"LOCAL","friendlyName":{"de":"FRITZ!Box Anwesenheit","en":"FRITZ!Box Presence"},"description":{"de":"Zeigt als Anwesenheitssensoren, wer zuhause ist — basierend auf den an der FRITZ!Box online befindlichen Geräten.","en":"Shows who is home as presence sensors, based on the devices currently online on your FRITZ!Box."},"changelog":"0.2.0 — Over-the-air Updates (Kanäle stabil/experimentell) mit lokalem Update-Dashboard: Fortschrittsanzeige und robuster Neustart-Ablauf statt Fehlermeldung. / Over-the-air updates (stable/experimental channels) with a local update dashboard: progress UI and a robust restart flow instead of an error. 0.1.0 — Erste Version. / Initial release.","logsEnabled":true}'
+LABEL de.eq3.hmip.plugin.metadata='{"pluginId":"de.fr.renner.plugin.fritzboxpresence","version":"0.2.1","issuer":"Fabio Renner","hcuMinVersion":"1.4.7","scope":"LOCAL","friendlyName":{"de":"FRITZ!Box Anwesenheit","en":"FRITZ!Box Presence"},"description":{"de":"Zeigt als Anwesenheitssensoren, wer zuhause ist — basierend auf den an der FRITZ!Box online befindlichen Geräten.","en":"Shows who is home as presence sensors, based on the devices currently online on your FRITZ!Box."},"changelog":"0.2.1 — Interne Zuverlässigkeits- und Robustheitsverbesserungen. / Internal reliability and robustness improvements. 0.2.0 — Over-the-air Updates (Kanäle stabil/experimentell) mit lokalem Update-Dashboard: Fortschrittsanzeige und robuster Neustart-Ablauf statt Fehlermeldung. / Over-the-air updates (stable/experimental channels) with a local update dashboard: progress UI and a robust restart flow instead of an error. 0.1.0 — Erste Version. / Initial release.","logsEnabled":true}'
 
 # Local OTA/settings dashboard.
 EXPOSE 8093

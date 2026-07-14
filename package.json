@@ -1,6 +1,6 @@
 {
   "name": "hmip-hcu-fritzbox-presence",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "FRITZ!Box Presence HMIP plugin (de.fr.renner.plugin.fritzboxpresence) — per-person presence as OCCUPANCY_SENSOR devices based on devices online on a FRITZ!Box.",
   "private": true,
   "type": "module",

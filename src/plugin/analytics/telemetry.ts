@@ -71,6 +71,21 @@ const TOTAL_TIMEOUT_MS = 5_000;
 const HEARTBEAT_MS = 24 * 3_600_000;
 const RETRY_MS = 15 * 60_000;
 
+// Field constraints mirroring the Analytics ingest validation. Values that do
+// not match are dropped (optional) rather than risking a 400 rejection.
+const RE_ARCH = /^[A-Za-z0-9_.-]{1,16}$/u;
+const RE_LANG = /^[A-Za-z-]{1,12}$/u;
+const RE_FIRMWARE = /^[A-Za-z0-9_.+-]{1,32}$/u;
+const RE_BUILDID = /^[A-Za-z0-9_.+-]{1,96}$/u;
+
+type PostResult = "ok" | "client" | "retry";
+
+function sanitize(value: string | undefined, re: RegExp): string | undefined {
+  if (value === undefined) return undefined;
+  const v = value.trim();
+  return re.test(v) ? v : undefined;
+}
+
 export class Telemetry {
   private installId: string | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -148,15 +163,17 @@ export class Telemetry {
       event,
       installId: await this.getInstallId(),
       pluginId: PLUGIN_ID,
-      coreVersion: v.coreVersion,
-      otaVersion: v.otaVersion,
+      // Versions are required; clamp to the 32-char server limit defensively.
+      coreVersion: v.coreVersion.slice(0, 32),
+      otaVersion: v.otaVersion.slice(0, 32),
     };
-    // Optional fields added only when present (exactOptionalPropertyTypes).
+    // Optional fields: validated against the ingest constraints; invalid ones
+    // are dropped (added only when present, per exactOptionalPropertyTypes).
     const optional: Array<[keyof TelemetryPayload, string | undefined]> = [
-      ["buildId", v.buildId],
-      ["arch", v.arch],
-      ["hcuFirmware", v.hcuFirmware],
-      ["lang", v.lang],
+      ["buildId", sanitize(v.buildId, RE_BUILDID)],
+      ["arch", sanitize(v.arch, RE_ARCH)],
+      ["hcuFirmware", sanitize(v.hcuFirmware, RE_FIRMWARE)],
+      ["lang", sanitize(v.lang, RE_LANG)],
       ["ts", new Date().toISOString()],
     ];
     const payload: TelemetryPayload = { ...base };
@@ -170,15 +187,17 @@ export class Telemetry {
     return payload;
   }
 
-  private async post(event: TelemetryEvent): Promise<boolean> {
+  private async post(event: TelemetryEvent): Promise<PostResult> {
     const payload = await this.buildPayload(event);
     const body = JSON.stringify(payload);
-    if (Buffer.byteLength(body, "utf8") > MAX_BYTES) return false;
+    // Oversized body would be rejected with 400 — treat as a client error.
+    if (Buffer.byteLength(body, "utf8") > MAX_BYTES) return "client";
 
     const controller = new AbortController();
     const connectGuard = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
     const totalGuard = setTimeout(() => controller.abort(), TOTAL_TIMEOUT_MS);
     const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // Primary header; the server also accepts the legacy X-HS-Ping-Secret.
     if (this.deps.secret) headers["X-HPA-Ping-Secret"] = this.deps.secret;
 
     const endpoint = process.env[`${ENV_PREFIX}_TELEMETRY_ENDPOINT`] ?? TELEMETRY_ENDPOINT;
@@ -189,14 +208,25 @@ export class Telemetry {
         body,
         signal: controller.signal,
       });
-      // 204 (also for rate-limited duplicates) counts as success.
-      return res.status === 204 || res.ok;
+      // 204 (incl. rate-limited/discovery/blocked) and any 2xx count as success.
+      if (res.status === 204 || res.ok) return "ok";
+      // 4xx = invalid payload/secret -> do NOT retry. 5xx/other -> retry later.
+      if (res.status >= 400 && res.status < 500) return "client";
+      return "retry";
     } catch {
-      return false;
+      // Network error / timeout -> retryable.
+      return "retry";
     } finally {
       clearTimeout(connectGuard);
       clearTimeout(totalGuard);
     }
+  }
+
+  private async recordSuccess(event: TelemetryEvent): Promise<void> {
+    const s = await this.readState();
+    s.lastTelemetrySuccess = new Date().toISOString();
+    if (event === "heartbeat") s.lastHeartbeatAt = s.lastTelemetrySuccess;
+    await this.writeState(s);
   }
 
   /** Send an event (fire-and-forget). Records local status; single delayed retry. */
@@ -207,13 +237,15 @@ export class Telemetry {
     state.lastTelemetryEvent = event;
     await this.writeState(state);
 
-    const ok = await this.post(event);
-    if (ok) {
-      const s = await this.readState();
-      s.lastTelemetrySuccess = new Date().toISOString();
-      if (event === "heartbeat") s.lastHeartbeatAt = s.lastTelemetrySuccess;
-      await this.writeState(s);
+    const result = await this.post(event);
+    if (result === "ok") {
+      await this.recordSuccess(event);
       this.log("info", `telemetry ${event} ok`);
+      return;
+    }
+    if (result === "client") {
+      // Invalid payload/secret: retrying would just fail again.
+      this.log("warn", `telemetry ${event} rejected (not retrying)`);
       return;
     }
     this.log("warn", `telemetry ${event} failed; will retry later`);
@@ -221,16 +253,22 @@ export class Telemetry {
     if (!this.retryTimer) {
       this.retryTimer = setTimeout(() => {
         this.retryTimer = null;
-        void this.post(event).then(async (retryOk) => {
-          if (retryOk) {
-            const s = await this.readState();
-            s.lastTelemetrySuccess = new Date().toISOString();
-            await this.writeState(s);
-          }
+        void this.post(event).then(async (retryResult) => {
+          if (retryResult === "ok") await this.recordSuccess(event);
         });
       }, RETRY_MS);
       this.retryTimer.unref?.();
     }
+  }
+
+  /** Heartbeat guard: send at most once per ~24h even across restarts. */
+  private async maybeHeartbeat(): Promise<void> {
+    const state = await this.readState();
+    if (state.lastHeartbeatAt) {
+      const age = Date.now() - Date.parse(state.lastHeartbeatAt);
+      if (Number.isFinite(age) && age < HEARTBEAT_MS * 0.9) return;
+    }
+    await this.send("heartbeat");
   }
 
   /**
@@ -251,7 +289,7 @@ export class Telemetry {
     this.bootTimer.unref?.();
 
     this.heartbeatTimer = setInterval(() => {
-      void this.send("heartbeat").catch(() => undefined);
+      void this.maybeHeartbeat().catch(() => undefined);
     }, HEARTBEAT_MS);
     this.heartbeatTimer.unref?.();
   }

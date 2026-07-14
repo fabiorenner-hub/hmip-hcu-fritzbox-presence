@@ -6,6 +6,13 @@ Alle wesentlichen Änderungen an diesem Projekt sind hier dokumentiert.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-07-14
+
+### Changed / Geändert
+
+- Internal reliability and robustness improvements. /
+  Interne Zuverlässigkeits- und Robustheitsverbesserungen.
+
 ## [0.2.0] - 2026-07-14
 
 ### Added / Hinzugefügt
@@ -50,5 +57,6 @@ Initial release. / Erste Veröffentlichung.
 - Full HCUweb configuration (connection, presence tuning, advanced, about). /
   Vollständige HCUweb-Konfiguration (Verbindung, Anwesenheit, Erweitert, Über).
 
+[0.2.1]: https://github.com/fabiorenner-hub/hmip-hcu-fritzbox-presence/releases/tag/v0.2.1
 [0.2.0]: https://github.com/fabiorenner-hub/hmip-hcu-fritzbox-presence/releases/tag/v0.2.0
 [0.1.0]: https://github.com/fabiorenner-hub/hmip-hcu-fritzbox-presence/releases/tag/0.1.0

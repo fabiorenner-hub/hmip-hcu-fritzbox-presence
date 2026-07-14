@@ -8,6 +8,9 @@ import { pipeline } from "node:stream/promises";
 const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
 const version = pkg.version;
 const tag = `fritzbox-presence:${version}`;
+const d = new Date();
+const p = (n, l = 2) => String(n).padStart(l, "0");
+const buildId = `${version}+${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
 const tar = `hmip-hcu-fritzbox-presence-${version}-arm64.tar`;
 const gz = `${tar}.gz`;
 
@@ -24,6 +27,8 @@ run("docker", [
   "--platform=linux/arm64",
   "--build-arg",
   `FRITZBOXPRESENCE_VERSION=${version}`,
+  "--build-arg",
+  `FRITZBOXPRESENCE_BUILD=${buildId}`,
   "-t",
   tag,
   "--load",
