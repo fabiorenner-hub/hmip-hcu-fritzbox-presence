@@ -6,6 +6,26 @@ Alle wesentlichen Änderungen an diesem Projekt sind hier dokumentiert.
 The format is based on [Keep a Changelog](https://keepachangelog.com/) and this
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-07-14
+
+### Added / Hinzugefügt
+
+- Over-the-air (OTA) update system with **stable** and **experimental**
+  channels; auto-update is on by default on the stable channel. /
+  Over-the-air-(OTA-)Update-System mit den Kanälen **stabil** und
+  **experimentell**; Auto-Update standardmäßig an auf dem stabilen Kanal.
+- Local update dashboard (port 8093) with a progress bar and a robust install
+  flow: the "Update now" button stays disabled through installing → restarting
+  → done, tolerates the restart outage instead of showing "failed to fetch",
+  and reloads automatically once the new version is up. /
+  Lokales Update-Dashboard (Port 8093) mit Fortschrittsbalken und robustem
+  Ablauf: „Jetzt aktualisieren" bleibt über Installieren → Neustart → Fertig
+  gesperrt, verkraftet das Neustart-Fenster statt „failed to fetch" und lädt
+  nach dem Hochkommen der neuen Version automatisch neu.
+- Crash-loop protection in the boot loader with automatic rollback to the image
+  bundle. / Crash-Loop-Schutz im Boot-Loader mit automatischem Rückfall auf das
+  Image-Bundle.
+
 ## [0.1.0] - 2026-06-26
 
 Initial release. / Erste Veröffentlichung.
@@ -30,4 +50,5 @@ Initial release. / Erste Veröffentlichung.
 - Full HCUweb configuration (connection, presence tuning, advanced, about). /
   Vollständige HCUweb-Konfiguration (Verbindung, Anwesenheit, Erweitert, Über).
 
+[0.2.0]: https://github.com/fabiorenner-hub/hmip-hcu-fritzbox-presence/releases/tag/v0.2.0
 [0.1.0]: https://github.com/fabiorenner-hub/hmip-hcu-fritzbox-presence/releases/tag/0.1.0

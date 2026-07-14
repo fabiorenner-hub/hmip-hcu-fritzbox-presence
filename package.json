@@ -1,8 +1,9 @@
 {
   "name": "hmip-hcu-fritzbox-presence",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "FRITZ!Box Presence HMIP plugin (de.fr.renner.plugin.fritzboxpresence) — per-person presence as OCCUPANCY_SENSOR devices based on devices online on a FRITZ!Box.",
   "private": true,
+  "type": "module",
   "license": "Apache-2.0",
   "author": "Fabio Renner (https://github.com/fabiorenner-hub)",
   "homepage": "https://github.com/fabiorenner-hub/hmip-hcu-fritzbox-presence#readme",
@@ -16,19 +17,32 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "main": "dist/index.js",
+  "main": "dist/plugin/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "dev": "tsc -p tsconfig.json && node dist/index.js"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "npm run build:bundle",
+    "build:bundle": "esbuild src/bootstrap/loader.ts src/plugin/index.ts --bundle --platform=node --format=esm --target=node20 --outdir=dist --out-extension:.js=.js --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\"",
+    "build:ota": "node scripts/build-ota.mjs stable",
+    "build:ota:exp": "node scripts/build-ota.mjs experimental",
+    "publish:ota:exp": "pwsh -File scripts/publish-ota-experimental.ps1",
+    "build:image": "node scripts/build-image.mjs",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run"
   },
   "dependencies": {
     "uuid": "^11.1.0",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
-    "typescript": "^5.7.2"
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.17.0",
+    "fast-check": "^3.23.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

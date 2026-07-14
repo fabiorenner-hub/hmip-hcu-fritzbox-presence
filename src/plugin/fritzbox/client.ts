@@ -1,5 +1,6 @@
-import * as crypto from "crypto";
-import * as https from "https";
+import * as crypto from "node:crypto";
+import * as http from "node:http";
+import * as https from "node:https";
 import { log } from "../logger";
 
 /**
@@ -131,6 +132,9 @@ export class FritzBoxClient {
     if (challenge.startsWith("2$")) {
       // PBKDF2 challenge: "2$<iter1>$<salt1>$<iter2>$<salt2>"
       const [, iter1Str, salt1Hex, iter2Str, salt2Hex] = challenge.split("$");
+      if (!iter1Str || !salt1Hex || !iter2Str || !salt2Hex) {
+        throw new FritzBoxAuthError("Malformed PBKDF2 challenge from FRITZ!Box");
+      }
       const iter1 = parseInt(iter1Str, 10);
       const iter2 = parseInt(iter2Str, 10);
       const hash1 = crypto.pbkdf2Sync(
@@ -188,7 +192,7 @@ export class FritzBoxClient {
         (options as https.RequestOptions).rejectUnauthorized = false;
       }
 
-      const transport = isHttps ? https : require("http");
+      const transport = isHttps ? https : http;
       const req = transport.request(options, (res: import("http").IncomingMessage) => {
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
@@ -221,5 +225,5 @@ interface NetDevResponse {
 /** Extract the inner text of the first <Tag>...</Tag> occurrence. */
 function extractTag(xml: string, tag: string): string | undefined {
   const match = new RegExp(`<${tag}>(.*?)</${tag}>`, "s").exec(xml);
-  return match ? match[1].trim() : undefined;
+  return match?.[1]?.trim();
 }

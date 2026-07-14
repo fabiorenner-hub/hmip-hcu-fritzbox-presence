@@ -25,6 +25,33 @@ Found a bug or have a question? Please [open an issue](../../issues). Include
 your HCU firmware version, the plugin version, your Fritz!OS version, and the
 relevant lines from the Connect log (HCUweb → plugin log panel).
 
+## Updates & dashboard
+
+The plugin can update itself over the air. A small local dashboard is available
+at `http://<your-hcu>.local:8093/` (dark theme, DE/EN) with:
+
+- installed / image / latest version, update **mode** (automatic/manual) and
+  **channel** (stable/experimental);
+- an **Update now** button with a progress bar and a robust install flow
+  (installing → restarting → done) that survives the restart window and reloads
+  automatically — no more "failed to fetch";
+- the privacy toggle (see below).
+
+Auto-update is **on by default on the stable channel**. Experimental delivers
+rolling prereleases for testing.
+
+## Privacy
+
+The plugin sends **anonymous, pseudonymous technical telemetry** (on by default,
+opt-out) to help gauge install counts, versions, architecture and firmware
+spread. Sent fields: schema, event (`start`/`heartbeat`/`update`), a
+pseudonymous `installId` (`sha256(salt + HCU SGTIN)` — the raw SGTIN is never
+transmitted), `pluginId`, plugin/core/OTA versions, architecture, HCU firmware
+and language. **Never** names, rooms, devices, measurements, automations,
+schedules, config, tokens, IP or location. Turn it off in the dashboard or the
+plugin config under **Privacy → "Send anonymous usage statistics"**; the exact
+payload is shown under **"What is sent?"**.
+
 ## What it does
 
 - **Per-person presence.** Each configured person becomes one

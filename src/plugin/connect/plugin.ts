@@ -40,16 +40,16 @@ export class FritzBoxPresencePlugin {
   private readonly config: ConfigStore;
 
   private ws?: WebSocket;
-  private fritzBox?: FritzBoxClient;
+  private fritzBox: FritzBoxClient | undefined = undefined;
   private people: Person[] = [];
 
   /** Last known presence per deviceId. */
   private presenceState = new Map<string, PresenceState>();
   /** Whether the FRITZ!Box was reachable on the last poll. */
   private reachable = false;
-  private lastError?: string;
+  private lastError: string | undefined = undefined;
   private initialized = false;
-  private pollTimer?: NodeJS.Timeout;
+  private pollTimer: NodeJS.Timeout | undefined = undefined;
 
   constructor(opts: PluginOptions) {
     this.pluginId = opts.pluginId;
@@ -61,6 +61,13 @@ export class FritzBoxPresencePlugin {
 
   start(): void {
     this.connect();
+  }
+
+  /** Aggregated, non-identifying counts for opt-in analytics (no names/ids). */
+  getPresenceCounts(): { persons: number; present: number } {
+    let present = 0;
+    for (const s of this.presenceState.values()) if (s.reported) present += 1;
+    return { persons: this.people.length, present };
   }
 
   // ---------------------------------------------------------------------------
@@ -361,7 +368,7 @@ export class FritzBoxPresencePlugin {
 
       if (raw === state.reported) {
         // Raw matches reported again: cancel any pending transition.
-        state.pendingSince = undefined;
+        delete state.pendingSince;
         continue;
       }
 
@@ -372,7 +379,7 @@ export class FritzBoxPresencePlugin {
       const requiredDelay = raw ? arrivalDelayMs : departureDelayMs;
       if (now - state.pendingSince >= requiredDelay) {
         state.reported = raw;
-        state.pendingSince = undefined;
+        delete state.pendingSince;
         const person = this.people.find((p) => p.deviceId === deviceId);
         log.info("presence", `${person?.name ?? deviceId} is now ${raw ? "present" : "away"}`);
         this.sendStatusEvent(deviceId, raw);

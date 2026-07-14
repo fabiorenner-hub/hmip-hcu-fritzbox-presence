@@ -1,6 +1,13 @@
 node_modules/
 dist/
+release/
+coverage/
 *.log
 .tmp-assets/
+.tmp-run/
 data/
 config.json
+TOKEN
+authtoken.txt
+*.tar
+*.tar.gz

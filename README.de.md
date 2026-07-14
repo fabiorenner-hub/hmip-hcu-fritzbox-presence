@@ -26,6 +26,34 @@ Fehler gefunden oder Frage? Bitte ein [Issue öffnen](../../issues). Bitte
 HCU-Firmware-Version, Plugin-Version, Fritz!OS-Version und die relevanten Zeilen
 aus dem Connect-Protokoll (HCUweb → Plugin-Log) angeben.
 
+## Updates & Dashboard
+
+Das Plugin kann sich over-the-air aktualisieren. Ein kleines lokales Dashboard
+ist unter `http://<deine-hcu>.local:8093/` erreichbar (dunkles Theme, DE/EN) mit:
+
+- installierter / Image- / neuester Version, Update-**Modus**
+  (automatisch/manuell) und **Kanal** (stabil/experimentell);
+- einem **„Jetzt aktualisieren"**-Button mit Fortschrittsbalken und robustem
+  Ablauf (Installieren → Neustart → Fertig), der das Neustart-Fenster
+  übersteht und automatisch neu lädt — kein „failed to fetch" mehr;
+- dem Datenschutz-Schalter (siehe unten).
+
+Auto-Update ist **standardmäßig an auf dem stabilen Kanal**. Experimentell
+liefert rollierende Vorabversionen zum Testen.
+
+## Datenschutz
+
+Das Plugin sendet **anonyme, pseudonyme technische Telemetrie** (standardmäßig
+an, abschaltbar), um Installationszahlen, Versionen, Architektur- und
+Firmware-Verbreitung auszuwerten. Übertragen werden: schema, event
+(`start`/`heartbeat`/`update`), eine pseudonyme `installId`
+(`sha256(salt + HCU-SGTIN)` — die rohe SGTIN wird nie übertragen), `pluginId`,
+Plugin-/Core-/OTA-Versionen, Architektur, HCU-Firmware und Sprache. **Niemals**
+Namen, Räume, Geräte, Messwerte, Automationen, Zeitpläne, Konfiguration, Tokens,
+IP oder Standort. Abschalten im Dashboard oder in der Plugin-Konfiguration unter
+**Datenschutz → „Anonyme Nutzungsstatistik senden"**; die genaue Nutzlast zeigt
+**„Was wird gesendet?"**.
+
 ## Was es kann
 
 - **Anwesenheit pro Person.** Jede konfigurierte Person wird ein

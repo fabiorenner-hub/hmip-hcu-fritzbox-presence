@@ -1,7 +1,13 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { ConfigTemplateBody, PropertyTemplate, GroupTemplate } from "./connect/types";
 import { LogLevel, log } from "./logger";
+import {
+  type UpdatesConfig,
+  type AnalyticsConfig,
+  UpdatesConfigSchema,
+  AnalyticsConfigSchema,
+} from "../shared/schema";
 
 /**
  * Persistent plugin configuration. The HCU pushes config values via
@@ -31,6 +37,10 @@ export interface PluginConfig {
   emitMaintenance: boolean;
   modelType: string;
   logLevel: LogLevel;
+
+  // Updates (OTA) + analytics
+  updates: UpdatesConfig;
+  analytics: AnalyticsConfig;
 }
 
 const DEFAULTS: PluginConfig = {
@@ -50,6 +60,9 @@ const DEFAULTS: PluginConfig = {
   emitMaintenance: true,
   modelType: "FRITZBOX-PRESENCE",
   logLevel: "info",
+
+  updates: UpdatesConfigSchema.parse({}),
+  analytics: AnalyticsConfigSchema.parse({}),
 };
 
 // Property identifiers (keys) used in the config template and updates.
@@ -68,6 +81,13 @@ export const PropertyId = {
   emitMaintenance: "emitMaintenance",
   modelType: "modelType",
   logLevel: "logLevel",
+  // Updates (OTA)
+  updatesMode: "updatesMode",
+  updatesChannel: "updatesChannel",
+  updatesCheckIntervalHours: "updatesCheckIntervalHours",
+  // Analytics (opt-out; on by default)
+  analyticsEnabled: "analyticsEnabled",
+  analyticsInfo: "analyticsInfo",
   // Informational, read-only properties.
   pluginInfo: "pluginInfo",
   projectLink: "projectLink",
@@ -76,6 +96,8 @@ export const PropertyId = {
 const GROUP_CONNECTION = "connection";
 const GROUP_MAPPING = "mapping";
 const GROUP_ADVANCED = "advanced";
+const GROUP_UPDATES = "updates";
+const GROUP_ANALYTICS = "analytics";
 const GROUP_INFO = "info";
 
 const MATCH_BY_VALUES: MatchBy[] = ["name", "mac"];
@@ -95,6 +117,16 @@ export class ConfigStore {
 
   get(): PluginConfig {
     return this.current;
+  }
+
+  /** OTA updater configuration (channel / mode / interval). */
+  getUpdatesConfig(): UpdatesConfig {
+    return this.current.updates;
+  }
+
+  /** Analytics configuration (opt-out; enabled by default). */
+  getAnalyticsConfig(): AnalyticsConfig {
+    return this.current.analytics;
   }
 
   private load(): PluginConfig {
@@ -121,6 +153,8 @@ export class ConfigStore {
       arrivalDelaySeconds: clamp(num(c.arrivalDelaySeconds, DEFAULTS.arrivalDelaySeconds), 0, 3600),
       departureDelaySeconds: clamp(num(c.departureDelaySeconds, DEFAULTS.departureDelaySeconds), 0, 3600),
       modelType: c.modelType?.trim() || DEFAULTS.modelType,
+      updates: parseUpdates(c.updates),
+      analytics: parseAnalytics(c.analytics),
     };
   }
 
@@ -173,6 +207,20 @@ export class ConfigStore {
     if (properties[PropertyId.arrivalDelaySeconds] !== undefined) next.arrivalDelaySeconds = clamp(num(properties[PropertyId.arrivalDelaySeconds], next.arrivalDelaySeconds), 0, 3600);
     if (properties[PropertyId.departureDelaySeconds] !== undefined) next.departureDelaySeconds = clamp(num(properties[PropertyId.departureDelaySeconds], next.departureDelaySeconds), 0, 3600);
 
+    // Updates (OTA)
+    const updatesRaw: Record<string, unknown> = { ...next.updates };
+    if (str(PropertyId.updatesMode) !== undefined) updatesRaw["mode"] = str(PropertyId.updatesMode);
+    if (str(PropertyId.updatesChannel) !== undefined) updatesRaw["channel"] = str(PropertyId.updatesChannel);
+    if (properties[PropertyId.updatesCheckIntervalHours] !== undefined) {
+      updatesRaw["checkIntervalHours"] = num(properties[PropertyId.updatesCheckIntervalHours], next.updates.checkIntervalHours);
+    }
+    next.updates = parseUpdates(updatesRaw);
+
+    // Analytics (opt-out; on by default)
+    const analyticsRaw: Record<string, unknown> = { enabled: next.analytics.enabled };
+    if (properties[PropertyId.analyticsEnabled] !== undefined) analyticsRaw["enabled"] = toBoolean(properties[PropertyId.analyticsEnabled]);
+    next.analytics = parseAnalytics(analyticsRaw);
+
     this.current = next;
     log.setLevel(this.current.logLevel);
     this.persist();
@@ -206,7 +254,9 @@ export class ConfigStore {
       [GROUP_CONNECTION]: { friendlyName: "FRITZ!Box", description: "Connection settings for your FRITZ!Box.", order: 1 },
       [GROUP_MAPPING]: { friendlyName: "Presence", description: "Map network devices to people and tune detection.", order: 2 },
       [GROUP_ADVANCED]: { friendlyName: "Advanced", description: "Behaviour and diagnostics.", order: 3 },
-      [GROUP_INFO]: { friendlyName: "About", description: "Plugin information.", order: 4 },
+      [GROUP_UPDATES]: { friendlyName: "Updates", description: "Over-the-air plugin updates.", order: 4 },
+      [GROUP_ANALYTICS]: { friendlyName: "Privacy", description: "Anonymous usage statistics (on by default, can be turned off).", order: 5 },
+      [GROUP_INFO]: { friendlyName: "About", description: "Plugin information.", order: 6 },
     };
 
     const properties: Record<string, PropertyTemplate> = {
@@ -352,6 +402,55 @@ export class ConfigStore {
         order: 3,
       },
 
+      [PropertyId.updatesMode]: {
+        dataType: "STRING",
+        friendlyName: "Update mode",
+        description: "How updates are applied. Allowed values: manual, auto. (Headless: use 'auto' so updates install without a dashboard.)",
+        defaultValue: DEFAULTS.updates.mode,
+        currentValue: c.updates.mode,
+        pattern: "^(manual|auto)$",
+        groupId: GROUP_UPDATES,
+        order: 1,
+      },
+      [PropertyId.updatesChannel]: {
+        dataType: "STRING",
+        friendlyName: "Update channel",
+        description: "Release channel. Allowed values: stable, experimental. Experimental delivers rolling prereleases.",
+        defaultValue: DEFAULTS.updates.channel,
+        currentValue: c.updates.channel,
+        pattern: "^(stable|experimental)$",
+        groupId: GROUP_UPDATES,
+        order: 2,
+      },
+      [PropertyId.updatesCheckIntervalHours]: {
+        dataType: "INTEGER",
+        friendlyName: "Check interval (hours)",
+        description: "How often to check GitHub for a newer release.",
+        defaultValue: String(DEFAULTS.updates.checkIntervalHours),
+        currentValue: String(c.updates.checkIntervalHours),
+        minimum: 1,
+        maximum: 168,
+        groupId: GROUP_UPDATES,
+        order: 3,
+      },
+
+      [PropertyId.analyticsEnabled]: {
+        dataType: "BOOLEAN",
+        friendlyName: "Send anonymous usage statistics",
+        description: "On by default. Sends only pseudonymous technical metadata (plugin/core/OTA version, architecture, firmware, language) — never names, rooms, devices, measurements, tokens or your SGTIN. Turn off to send nothing.",
+        defaultValue: "true",
+        currentValue: String(c.analytics.enabled),
+        groupId: GROUP_ANALYTICS,
+        order: 1,
+      },
+      [PropertyId.analyticsInfo]: {
+        dataType: "READONLY",
+        friendlyName: "What is sent",
+        currentValue: "schema, event (start/heartbeat/update), pseudonymous installId, pluginId, versions, arch, firmware, language.",
+        groupId: GROUP_ANALYTICS,
+        order: 2,
+      },
+
       [PropertyId.pluginInfo]: {
         dataType: "READONLY",
         friendlyName: "Version",
@@ -388,4 +487,14 @@ function num(value: unknown, fallback: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function parseUpdates(raw: unknown): UpdatesConfig {
+  const r = UpdatesConfigSchema.safeParse(raw ?? {});
+  return r.success ? r.data : UpdatesConfigSchema.parse({});
+}
+
+function parseAnalytics(raw: unknown): AnalyticsConfig {
+  const r = AnalyticsConfigSchema.safeParse(raw ?? {});
+  return r.success ? r.data : AnalyticsConfigSchema.parse({});
 }
